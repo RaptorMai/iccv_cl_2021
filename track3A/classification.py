@@ -7,11 +7,13 @@ import argparse
 from avalanche.benchmarks.scenarios.generic_benchmark_creation import create_multi_dataset_generic_benchmark
 from avalanche.evaluation.metrics import accuracy_metrics, loss_metrics, class_accuracy_metrics
 from avalanche.logging import TextLogger, InteractiveLogger
-from avalanche.training.plugins import EvaluationPlugin
+from avalanche.training.plugins import EvaluationPlugin, ReplayPlugin
 from avalanche.training.strategies import Naive
 
+import resnet
 from class_strategy import *
 from classification_util import *
+from sup_con_loss import SupConLoss
 
 
 def main():
@@ -20,7 +22,7 @@ def main():
                         help='Name of the result files')
     parser.add_argument('--root', default="../data",
                         help='Root folder where the data is stored')
-    parser.add_argument('--num_workers', type=int, default=4,
+    parser.add_argument('--num_workers', type=int, default=0,
                         help='Num workers to use for dataloading. Recommended to have more than 1')
     parser.add_argument('--store', action='store_true',
                         help="If set the prediciton files required for submission will be created")
@@ -41,16 +43,18 @@ def main():
     args.root = f"{args.root}/SSLAD-2D/labeled"
     device = torch.device('cuda' if torch.cuda.is_available() and not args.no_cuda else 'cpu')
 
-    model = torchvision.models.resnet50(pretrained=True)
+    model = resnet.resnet50(pretrained=True)
     model.fc = Linear(2048, 7, bias=True)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-    criterion = torch.nn.CrossEntropyLoss()
+    #criterion = torch.nn.CrossEntropyLoss()
+    criterion = SupConLoss()
     batch_size = 10
 
     # Add any additional plugins to be used by Avalanche to this list. A template
     # is provided in class_strategy.py.
-    plugins = [ClassStrategyPlugin()]
+    plugins = [SupContrastPlugin(), NCMPlugin()]
+
 
     ######################################
     #                                    #
